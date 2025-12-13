@@ -1,68 +1,80 @@
 import os
 from io import BytesIO
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, send_file, jsonify, make_response
 from PIL import Image
 from pillow_heif import register_heif_opener
 
-# 1. Register the HEIF opener plugin
-# This tells the system how to read the special HEIC format
+# Register HEIC opener
 register_heif_opener()
 
 app = Flask(__name__)
 
-# Allowed output formats
 ALLOWED_FORMATS = {'jpg', 'png'}
 
+# --- NEW PART: A Simple Home Page ---
+@app.route('/', methods=['GET'])
+def home():
+    # This HTML creates a simple button to upload a file directly in the browser
+    return """
+    <html>
+        <body>
+            <h1>HEIC Converter is Live! 🟢</h1>
+            <p>Select an HEIC file to convert:</p>
+            <form action="/convert" method="post" enctype="multipart/form-data">
+                <input type="file" name="file" accept=".heic">
+                <br><br>
+                <label>Convert to:</label>
+                <select name="format">
+                    <option value="jpg">JPG</option>
+                    <option value="png">PNG</option>
+                </select>
+                <br><br>
+                <input type="submit" value="Convert Image">
+            </form>
+        </body>
+    </html>
+    """
+
+# --- THE CONVERSION LOGIC (Same as before) ---
 @app.route('/convert', methods=['POST'])
 def convert_heic():
-    # Check if a file was actually sent
     if 'file' not in request.files:
-        return jsonify({"error": "No file part in the request"}), 400
+        return jsonify({"error": "No file part"}), 400
     
     file = request.files['file']
     
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
 
-    # Get the desired format (default to jpg if not specified)
     output_format = request.form.get('format', 'jpg').lower()
     
     if output_format not in ALLOWED_FORMATS:
-        return jsonify({"error": "Invalid format. Use 'jpg' or 'png'"}), 400
+        return jsonify({"error": "Invalid format"}), 400
 
     try:
-        # 2. Open the image directly from memory
         image = Image.open(file.stream)
-        
-        # 3. Create a memory buffer to hold the converted image
         output_buffer = BytesIO()
         
-        # Save the image into the buffer based on format
         if output_format == 'jpg':
-            # Convert to RGB mode (needed for JPG) in case it's transparent
-            image = image.convert("RGB") 
+            image = image.convert("RGB")
             image.save(output_buffer, format='jpeg', quality=85)
             mime_type = 'image/jpeg'
         else:
             image.save(output_buffer, format='png')
             mime_type = 'image/png'
         
-        # Reset buffer position to the start so it can be read
         output_buffer.seek(0)
         
-        # 4. Send the new file back to the requester
-        new_filename = f"converted.{output_format}"
         return send_file(
             output_buffer,
             mimetype=mime_type,
             as_attachment=True,
-            download_name=new_filename
+            download_name=f"converted.{output_format}"
         )
         
     except Exception as e:
         print(f"Error: {e}")
-        return jsonify({"error": "Conversion failed. File may be corrupt."}), 500
+        return jsonify({"error": "Conversion failed"}), 500
 
 if __name__ == '__main__':
-    # This runs the server on port 5000
     app.run(debug=True, host='0.0.0.0', port=5000)
