@@ -1,0 +1,26 @@
+# 1. Start with a lightweight Python environment (Linux based)
+FROM python:3.11-slim
+
+# 2. Install system-level libraries required for HEIC processing
+# This is the "secret sauce" that allows Python to understand HEIC
+RUN apt-get update && \
+    apt-get install -y libheif-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# 3. Create a folder inside the container for your code
+WORKDIR /app
+
+# 4. Copy the requirements file into the container
+COPY requirements.txt .
+
+# 5. Install the Python dependencies from the file
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 6. Copy the rest of your code (app.py) into the container
+COPY . .
+
+# 7. Open port 5000 so the outside world can talk to the app
+EXPOSE 5000
+
+# 8. The command to start the application when the container runs
+CMD ["python", "app.py"]
