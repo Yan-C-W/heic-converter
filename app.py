@@ -11,10 +11,9 @@ app = Flask(__name__)
 
 ALLOWED_FORMATS = {'jpg', 'png'}
 
-# --- NEW PART: A Simple Home Page ---
+# --- HOME PAGE (Visual Interface) ---
 @app.route('/', methods=['GET'])
 def home():
-    # This HTML creates a simple button to upload a file directly in the browser
     return """
     <html>
         <body>
@@ -35,7 +34,7 @@ def home():
     </html>
     """
 
-# --- THE CONVERSION LOGIC (Same as before) ---
+# --- THE CONVERSION LOGIC ---
 @app.route('/convert', methods=['POST'])
 def convert_heic():
     if 'file' not in request.files:
@@ -65,11 +64,23 @@ def convert_heic():
         
         output_buffer.seek(0)
         
+        # --- NEW LOGIC: Preserve the filename ---
+        # 1. Get the original filename (e.g., "receipt_december.heic")
+        original_name = file.filename
+        
+        # 2. Split the name from the extension 
+        # os.path.splitext("receipt.heic") becomes ("receipt", ".heic")
+        # [0] grabs just the first part ("receipt")
+        name_without_ext = os.path.splitext(original_name)[0]
+        
+        # 3. Create the new full name (e.g., "receipt_december.jpg")
+        new_filename = f"{name_without_ext}.{output_format}"
+        
         return send_file(
             output_buffer,
             mimetype=mime_type,
             as_attachment=True,
-            download_name=f"converted.{output_format}"
+            download_name=new_filename # <--- Updated to use the new variable
         )
         
     except Exception as e:
